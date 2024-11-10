@@ -1,4 +1,4 @@
-.myenv
-.templates
+.env
+/templates/
 exercise
 model
