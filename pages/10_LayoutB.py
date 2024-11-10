@@ -13,10 +13,16 @@ def contains_image(paragraph):
             return True
     return False
 
+def is_list_item(paragraph):
+    # Memeriksa apakah paragraf merupakan bagian dari list dengan mendeteksi atribut w:numPr.
+    if paragraph._element.xpath('.//w:numPr'):
+        return True
+    return False
+
 # Fungsi untuk format paragraf sesuai aturan yang diberikan
 def format_paragraph(paragraph, font_name="Cambria", font_size=11, italic=False, bold=False, alignment='justified', 
                      left_indent=0, right_indent=0, spacing_before=0, spacing_after=0, 
-                     line_spacing=1, special_indent="none"):
+                     line_spacing=1, special_indent="none", hanging_by = 0.84):
     
     # Set font
     for run in paragraph.runs:
@@ -50,6 +56,9 @@ def format_paragraph(paragraph, font_name="Cambria", font_size=11, italic=False,
     # Set special indentasi untuk "first line"
     if special_indent == "first_line":
         paragraph.paragraph_format.first_line_indent = Pt(36)  # Set first line indent to 1.27 cm
+    elif special_indent == "hanging":
+        paragraph.paragraph_format.left_indent = Cm(hanging_by)
+        paragraph.paragraph_format.first_line_indent = Cm(-hanging_by)
     else:
         paragraph.paragraph_format.first_line_indent = None  # No first line indent if not specified
 
@@ -81,18 +90,19 @@ def set_superscript_for_numbers(paragraph):
             new_run = paragraph.add_run(new_text)
             new_run.font.size = run.font.size
         run.clear()
-
+                
 def reformat_document(doc):
     to_delete = []  # List untuk menandai paragraf yang akan dihapus
     abstrak_section = False  # Menandai apakah sedang dalam bagian Abstrak hingga Keywords
     afiliation_section = False  # Menandai apakah sedang dalam bagian Abstrak hingga Keywords
-    # daftar_pustaka_section = False  # Menandai apakah telah mencapai bagian "DAFTAR PUSTAKA"
+    daftar_pustaka_section = False  # Menandai apakah telah mencapai bagian "DAFTAR PUSTAKA"
     
     # Hapus paragraf kosong atau dengan "nomor handphone" dari dokumen
     for i, paragraph in enumerate(doc.paragraphs):
         text = paragraph.text.strip().lower()
         
         if contains_image(paragraph):
+            format_paragraph(paragraph, alignment='center')
             continue
         if not text:
             to_delete.append(paragraph)
@@ -107,6 +117,7 @@ def reformat_document(doc):
     
     # Menambahkan paragraf kosong setelah "abstrak", "abstract", "gambar {angka}", "tabel {angka}", dan paragraf kedua
     pattern = re.compile(r'\b(kata kunci|keywords|abstrak|abstract|gambar \d. |tabel \d. )\b', re.IGNORECASE)
+    image_pattern = re.compile(r'\b(gambar \d.)\b', re.IGNORECASE)
     paragraphs_to_insert_before = []
     
     # Tandai paragraf yang cocok dan paragraf kedua
@@ -114,27 +125,34 @@ def reformat_document(doc):
         if contains_image(paragraph):
             continue  # Skip formatting if paragraph contains an image
         
-        format_paragraph(paragraph, spacing_before=0, spacing_after=0, special_indent="first_line")
+        format_paragraph(paragraph, special_indent="first_line")
         
         if i == 2:  # Paragraf kedua (indeks 1)
             paragraphs_to_insert_before.append(i)
         if pattern.search(paragraph.text):
-            format_paragraph(paragraph)
-            if 'gambar' in text:
+            format_paragraph(paragraph, alignment='center')
+            if image_pattern.search(paragraph.text):
                 i+=1
             paragraphs_to_insert_before.append(i)
-
+    
+    pattern_table_gambar = re.compile(r'\b(Tabel \d.\s| Gambar \d.\s)\b', re.IGNORECASE)
+    
     # Sisipkan paragraf kosong setelah paragraf yang sesuai
     for index in reversed(paragraphs_to_insert_before):
         empty_paragraph = doc.paragraphs[index].insert_paragraph_before("")
         format_paragraph(empty_paragraph, font_size=10, special_indent="none")
 
+    # Re-style
     for i, paragraph in enumerate(doc.paragraphs):
-        text = paragraph.text.strip().lower()  
+        text = paragraph.text.strip().lower() 
+        
+        if is_list_item(paragraph):
+            format_paragraph(paragraph, special_indent="hanging", hanging_by = 0.63)
         
         if contains_image(paragraph):
             continue  # Skip formatting if paragraph contains an image
-
+        if pattern_table_gambar.search(paragraph.text):
+            format_paragraph(paragraph, alignment='center')
         if i == 0:
             paragraph.text = paragraph.text.title()  # Kapitalisasi setiap kata
             format_paragraph(paragraph, font_size=14, special_indent="none", spacing_after=18, alignment='center')
@@ -155,6 +173,7 @@ def reformat_document(doc):
         
         elif 'kata kunci' in text or 'keywords' in text:
             format_paragraph(paragraph, font_size=10, italic=True, alignment='left', special_indent="none")
+            # Daftar kata kunci yang ingin dibuat bold
             if 'keywords:' in text:
                 abstrak_section = False
             
@@ -164,7 +183,7 @@ def reformat_document(doc):
     
     # Kompilasi pola header dan sub-header
     pattern_header = re.compile(r'\b(\d. PENDAHULUAN|\d. METODE|\d. HASIL DAN PEMBAHASAN|\d. KESIMPULAN|UCAPAN TERIMA KASIH|DAFTAR PUSTAKA)\b', re.IGNORECASE)
-    pattern_sub_header = re.compile(r'\b(\d. \d.|\d. \d. \d.)\b', re.IGNORECASE)
+    pattern_sub_header = re.compile(r'\b(\d+\.\d+(\.\d+)?\.?)\b', re.IGNORECASE)
 
     # Loop melalui semua paragraf di dokumen
     for i, paragraph in enumerate(doc.paragraphs):
@@ -173,18 +192,16 @@ def reformat_document(doc):
         # Format header
         if pattern_header.search(text):
             format_paragraph(paragraph, bold=True, spacing_before=24, spacing_after=6)
-            # if "daftar pustaka" in text:
-                # daftar_pustaka_section = True  # Mulai section Daftar Pustaka
-        
+            if "daftar pustaka" in text:
+                daftar_pustaka_section = True  # Mulai section Daftar Pustaka
+                 
+        # Terapkan indentasi hanging jika berada dalam section Daftar Pustaka
+        elif daftar_pustaka_section:
+            format_paragraph(paragraph, special_indent="hanging", spacing_after=3)
+
         # Format sub-header
         elif pattern_sub_header.search(text):
             format_paragraph(paragraph, bold=True, spacing_before=12, spacing_after=3)
-        
-        # Terapkan indentasi hanging jika berada dalam section Daftar Pustaka
-        # elif daftar_pustaka_section:
-        #     format_paragraph(paragraph, special_indent="hanging", spacing_after=3)
-        #     paragraph.paragraph_format.left_indent = Cm(0.84)  # Set hanging indent to 0.84 cm
-
 
     return doc
 

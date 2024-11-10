@@ -29,24 +29,21 @@ def extract_info_from_docx(file):
     
     return journal_info
 
-def fill_template(template_file, journal_info, loa_id, current_date, loa_name):
+def fill_template(template_file, journal_info, loa_id, current_date, loa_name, romawi_bulan, tahun, vol_no):
     doc = Document(template_file)
     
     # Replace placeholders with actual data
     for paragraph in doc.paragraphs:
-        ROMAWI_BULAN = "VI"
-        TAHUN = "2024"
-        VOL_NO = "Volume 4 Nomor 1 Juni 2024"
         
         formatted_authors = format_authors(journal_info["author"], journal_info["afiliasi"])
         if '{judul}' in paragraph.text:
             paragraph.text = paragraph.text.replace('{judul}', journal_info["title"])
         if '{romawi_bulan}' in paragraph.text:
-            paragraph.text = paragraph.text.replace('{romawi_bulan}', ROMAWI_BULAN)
+            paragraph.text = paragraph.text.replace('{romawi_bulan}', romawi_bulan)
         if '{tahun}' in paragraph.text:
-            paragraph.text = paragraph.text.replace('{tahun}', TAHUN)
+            paragraph.text = paragraph.text.replace('{tahun}', tahun)
         if '{vol_no}' in paragraph.text:
-            paragraph.text = paragraph.text.replace('{vol_no}', VOL_NO)
+            paragraph.text = paragraph.text.replace('{vol_no}', vol_no)
         if '{penulis}' in paragraph.text:
             paragraph.text = paragraph.text.replace('{penulis}', formatted_authors)
         if '{loa_id}' in paragraph.text:
@@ -92,7 +89,7 @@ def fill_template(template_file, journal_info, loa_id, current_date, loa_name):
 
 def format_authors(authors, affiliation):
     # Extract university name from the affiliation string
-    university_name = re.search(r'\b(Sekolah|Institut|Politeknik|Universitas|University|Poltekkes)\b.*?, Indonesia', affiliation).group(0)[:-11]
+    university_name = re.search(r'\b(Sekolah|Institut|Politeknik|Universitas|University|Poltekkes|STIKES)\b.*?, Indonesia', affiliation).group(0)[:-11]
     authors_list = [re.sub(r'[\*\d]+$', '', author.strip()) for author in authors.split(',')]
     
     # Create formatted author strings with numbering
@@ -131,7 +128,15 @@ def get_current_date():
 
 # Membuat antarmuka Streamlit
 st.title("Ekstraksi Data JIKI")
-st.write("Unggah file jurnal Word (DOCX).")
+col1, col2 = st.columns(2)
+
+with col1:
+    romawi_bulan = st.text_input("Romawi bulan:", "VI")
+
+with col2:
+    tahun = st.text_input("Tahun:", "2024")
+    
+vol_no = st.text_input("Volume Nomor:", "Volume 4 Nomor 1 Juni 2024")
 
 # Upload file
 uploaded_file = st.file_uploader("Pilih file Word", type=["docx"])
@@ -157,7 +162,7 @@ if uploaded_file is not None:
     st.write("**LoA ID:**", loa_id)
 
     # Isi template dengan data yang diekstrak
-    filled_file = fill_template(TEMPLATE_PATH, journal_info, loa_id, current_date, loa_name)
+    filled_file = fill_template(TEMPLATE_PATH, journal_info, loa_id, current_date, loa_name, romawi_bulan, tahun, vol_no)
     st.success(filled_file)
     
 #     # Provide download link for the filled document

@@ -13,6 +13,7 @@ st.set_page_config(
 
 st.title("LoA Generator 😁")
 
+
 st.markdown(
     """
     Selamat datang di aplikasi LoA Generator. Disini kamu bisa membuat LoA jurnal secara otomatis lho. Berikut adalah cara yang dapat kamu lakukan:
@@ -176,4 +177,6 @@ if uploaded_file is not None:
         os.remove(docx_path)
         # os.remove(pdf_output_path)
     else:
-        st.error(f"Conversion failed: {conversion_result}")  # Use the error message from the function
+        st.error(f"Conversion: {conversion_result}")  # Use the error message from the function
+
+

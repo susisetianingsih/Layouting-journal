@@ -13,10 +13,16 @@ def contains_image(paragraph):
             return True
     return False
 
+def is_list_item(paragraph):
+    # Memeriksa apakah paragraf merupakan bagian dari list dengan mendeteksi atribut w:numPr.
+    if paragraph._element.xpath('.//w:numPr'):
+        return True
+    return False
+
 # Fungsi untuk format paragraf sesuai aturan yang diberikan
-def format_paragraph(paragraph, font_name="Cambria", font_size=11, italic=False, bold=False, alignment='justified', 
+def format_paragraph(paragraph, font_name="Times New Roman", font_size=11, italic=False, bold=False, alignment='justified', 
                      left_indent=0, right_indent=0, spacing_before=0, spacing_after=0, 
-                     line_spacing=1, special_indent="none"):
+                     line_spacing=1, special_indent="none", hanging_by = 0.84):
     
     # Set font
     for run in paragraph.runs:
@@ -49,21 +55,55 @@ def format_paragraph(paragraph, font_name="Cambria", font_size=11, italic=False,
     
     # Set special indentasi untuk "first line"
     if special_indent == "first_line":
-        paragraph.paragraph_format.first_line_indent = Pt(36)  # Set first line indent to 1.27 cm
+        paragraph.paragraph_format.first_line_indent = Cm(0.75)  
+    elif special_indent == "hanging":
+        paragraph.paragraph_format.left_indent = Cm(hanging_by)
+        paragraph.paragraph_format.first_line_indent = Cm(-hanging_by)
     else:
         paragraph.paragraph_format.first_line_indent = None  # No first line indent if not specified
 
+def set_superscript_for_numbers(paragraph):
+    """Mengatur hanya angka dalam paragraf tertentu menjadi superscript."""
+    runs = paragraph.runs
+    for run in runs:
+        new_text = ""
+        i = 0
+        while i < len(run.text):
+            char = run.text[i]
+            if char.isdigit():  # Jika karakter adalah angka
+                # Pisahkan karakter sebelumnya
+                if new_text:
+                    new_run = paragraph.add_run(new_text)
+                    new_run.font.size = run.font.size
+                    new_text = ""
+                
+                # Tambahkan karakter angka sebagai superscript
+                num_run = paragraph.add_run(char)
+                num_run.font.size = run.font.size
+                num_run.font.superscript = True
+            else:
+                new_text += char
+            i += 1
+        
+        # Tambahkan sisa teks sebagai run biasa
+        if new_text:
+            new_run = paragraph.add_run(new_text)
+            new_run.font.size = run.font.size
+        run.clear()
+                
 def reformat_document(doc):
     to_delete = []  # List untuk menandai paragraf yang akan dihapus
     abstrak_section = False  # Menandai apakah sedang dalam bagian Abstrak hingga Keywords
+    abstract_section = False  # Menandai apakah sedang dalam bagian Abstrak hingga Keywords
     afiliation_section = False  # Menandai apakah sedang dalam bagian Abstrak hingga Keywords
-    # daftar_pustaka_section = False  # Menandai apakah telah mencapai bagian "DAFTAR PUSTAKA"
+    daftar_pustaka_section = False  # Menandai apakah telah mencapai bagian "DAFTAR PUSTAKA"
     
     # Hapus paragraf kosong atau dengan "nomor handphone" dari dokumen
     for i, paragraph in enumerate(doc.paragraphs):
         text = paragraph.text.strip().lower()
         
         if contains_image(paragraph):
+            format_paragraph(paragraph, alignment='center')
             continue
         if not text:
             to_delete.append(paragraph)
@@ -77,89 +117,112 @@ def reformat_document(doc):
         p._p = p._element = None
     
     # Menambahkan paragraf kosong setelah "abstrak", "abstract", "gambar {angka}", "tabel {angka}", dan paragraf kedua
-    pattern = re.compile(r'\b(kata kunci|keywords|abstrak|abstract|gambar \d. |tabel \d. )\b', re.IGNORECASE)
+    pattern = re.compile(r'\b(kata kunci|keywords|abstrak|abstract)\b', re.IGNORECASE)
+    image_pattern = re.compile(r'\b(gambar \d.)\b', re.IGNORECASE)
+    tabel_pattern = re.compile(r'\b(tabel \d.)\b', re.IGNORECASE)
     paragraphs_to_insert_before = []
     
     # Tandai paragraf yang cocok dan paragraf kedua
     for i, paragraph in enumerate(doc.paragraphs):
+        text = paragraph.text.strip().lower()
+        
         if contains_image(paragraph):
             continue  # Skip formatting if paragraph contains an image
         
-        format_paragraph(paragraph, spacing_before=0, spacing_after=0, special_indent="first_line")
+        format_paragraph(paragraph, special_indent="first_line")
         
-        if i == 2:  # Paragraf kedua (indeks 1)
+        if i == 1 or i == 2: 
             paragraphs_to_insert_before.append(i)
+        
+        if image_pattern.search(paragraph.text):
+            i+=1
+            paragraphs_to_insert_before.append(i)
+        
+        if tabel_pattern.search(paragraph.text):
+            paragraphs_to_insert_before.append(i)
+            
         if pattern.search(paragraph.text):
-            format_paragraph(paragraph)
-            if 'gambar' in text:
-                i+=1
+            format_paragraph(paragraph, alignment='center')
             paragraphs_to_insert_before.append(i)
-
+            paragraphs_to_insert_before.append(i+1)
+    
     # Sisipkan paragraf kosong setelah paragraf yang sesuai
     for index in reversed(paragraphs_to_insert_before):
         empty_paragraph = doc.paragraphs[index].insert_paragraph_before("")
         format_paragraph(empty_paragraph, font_size=10, special_indent="none")
 
+    pattern_table_gambar = re.compile(r'\b(Tabel \d.\s| Gambar \d.\s)\b', re.IGNORECASE)
+    
+    # Re-style
     for i, paragraph in enumerate(doc.paragraphs):
-        text = paragraph.text.strip().lower()  
+        text = paragraph.text.strip().lower() 
+        
+        if is_list_item(paragraph):
+            format_paragraph(paragraph, special_indent="hanging", hanging_by = 0.63)
         
         if contains_image(paragraph):
             continue  # Skip formatting if paragraph contains an image
-
+        if pattern_table_gambar.search(paragraph.text):
+            format_paragraph(paragraph, alignment='center')
         if i == 0:
             paragraph.text = paragraph.text.title()  # Kapitalisasi setiap kata
-            format_paragraph(paragraph, font_size=14, special_indent="none", spacing_after=18, alignment='center')
-        elif i == 1:
+            format_paragraph(paragraph, font_size=12, bold=True, special_indent="none", spacing_before=6, alignment='center')
+        elif i == 2:
             paragraph.text = paragraph.text.title()
-            format_paragraph(paragraph, font_size=12, bold=True, alignment='center', special_indent="none")
+            set_superscript_for_numbers(paragraph)
+            format_paragraph(paragraph, bold=True, alignment='center')
             afiliation_section = True
             
         # Paragraf dengan "Abstrak" atau "Abstract"
-        elif 'abstrak' in text or 'abstract' in text:
+        elif 'abstrak' in text:
             afiliation_section = False
             abstrak_section = True  # Mulai section Abstrak
+            format_paragraph(paragraph, font_size=10, bold=True, alignment='center', special_indent="none")
+        
+        elif 'abstract' in text:
+            abstract_section = True  # Mulai section Abstrak
             format_paragraph(paragraph, font_size=10, italic=True, bold=True, alignment='center', special_indent="none")
         
         elif afiliation_section:
-            format_paragraph(paragraph, font_size=10, alignment='center', special_indent="none")
+            format_paragraph(paragraph, alignment='center')
         
         elif 'kata kunci' in text or 'keywords' in text:
             format_paragraph(paragraph, font_size=10, italic=True, alignment='left', special_indent="none")
-            if 'keywords:' in text:
+            # Daftar kata kunci yang ingin dibuat bold
+            if 'kata kunci:' in text:
                 abstrak_section = False
+            if 'keywords:' in text:
+                abstract_section = False
             
         #Jika dalam section Abstrak hingga Keywords, gunakan font size 10pt
         elif abstrak_section:
-            format_paragraph(paragraph, italic=True, font_size=10, special_indent="first_line")
+            format_paragraph(paragraph, font_size=10)
+        
+        elif abstract_section:
+            format_paragraph(paragraph, italic=True, font_size=10)
     
     # Kompilasi pola header dan sub-header
-    pattern_header = re.compile(r'\b(\d. PENDAHULUAN|\d. METODE|\d. HASIL DAN PEMBAHASAN|\d. KESIMPULAN|UCAPAN TERIMA KASIH|DAFTAR PUSTAKA)\b', re.IGNORECASE)
-    pattern_sub_header = re.compile(r'\b(\d. \d.|\d. \d. \d.)\b', re.IGNORECASE)
-
+    pattern_header = re.compile(r'\b(PENDAHULUAN|METODE|HASIL DAN PEMBAHASAN|KESIMPULAN|UCAPAN TERIMA KASIH|DAFTAR PUSTAKA)\b', re.IGNORECASE)
+    
     # Loop melalui semua paragraf di dokumen
     for i, paragraph in enumerate(doc.paragraphs):
         text = paragraph.text.strip().lower()
 
         # Format header
         if pattern_header.search(text):
-            format_paragraph(paragraph, bold=True, spacing_before=24, spacing_after=6)
-            # if "daftar pustaka" in text:
-                # daftar_pustaka_section = True  # Mulai section Daftar Pustaka
-        
-        # Format sub-header
-        elif pattern_sub_header.search(text):
-            format_paragraph(paragraph, bold=True, spacing_before=12, spacing_after=3)
+            format_paragraph(paragraph, bold=True, spacing_before=12, spacing_after=6, special_indent="hanging", hanging_by = 0.63)
+            if "daftar pustaka" in text:
+                daftar_pustaka_section = True  # Mulai section Daftar Pustaka
         
         # Terapkan indentasi hanging jika berada dalam section Daftar Pustaka
-        # elif daftar_pustaka_section:
-        #     format_paragraph(paragraph, special_indent="hanging", spacing_after=3)
-        #     paragraph.paragraph_format.left_indent = Cm(0.84)  # Set hanging indent to 0.84 cm
+        elif daftar_pustaka_section:
+            format_paragraph(paragraph, special_indent="hanging", spacing_after=3)
 
 
     return doc
 
 # Streamlit UI
-st.title("Word Document Type JAMSI")
+st.title("Word Document Type JUPIN")
 uploaded_file = st.file_uploader("Upload a Word file (.docx)", type="docx")
 
 if uploaded_file is not None:
