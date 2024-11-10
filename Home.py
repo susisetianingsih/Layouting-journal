@@ -11,15 +11,31 @@ st.set_page_config(
     page_icon="✨"
 )
 
-st.title("LoA Generator 😁")
+st.title("Layouting Automation 😁")
 
 
 st.markdown(
     """
-    Selamat datang di aplikasi LoA Generator. Disini kamu bisa membuat LoA jurnal secara otomatis lho. Berikut adalah cara yang dapat kamu lakukan:
+    Selamat datang di aplikasi Layouting Automation. Disini kamu bisa membuat LoA jurnal, editing jurnal, dan listing journal secara otomatis lho. Berikut adalah cara yang dapat kamu lakukan!
+    
+    ## 🚀 LoA Automation
+        
+    1. Sesuaikan data seperti romawi bulan, tahun, dan volume nomor jurnal
+    2. Pastikan file jurnal yang di upload sudah di editing
+    3. Upload jurnal berekstensi .docx yang mau kamu buat LoA-nya   
+    4. Jika sudah sesuai maka hasil ekstraksinya akan secara otomatis ditampilkan
+    5. Anda akan memperoleh file LoA word dan PDF sesuai dengan path tiap jurnal
+    6. Periksa kembali untuk mengurangi kesalahan LoA
+    
+    ## 📝 Editing Automation  
+      
     1. Upload jurnal berekstensi .docx yang mau kamu buat LoA-nya   
-    2. Jika sudah sesuai maka hasilnya akan secara otomatis ditampilkan
-    3. Anda akan memperoleh file LoA word dan PDF sesuai dengan path tiap jurnal
+    2. Setelah selesai editing, maka akan muncul tombol Donwload
+    3. Harap periksa kembali hasil editing file yang telah di unduh
+    
+    ## 🧾 Listing Automation    
+    1. Sesuaikan projek yang akan dilakukan listing
+    2. Secara otomatis, hasil list akan langsung di tampilkan
     
     """
 )

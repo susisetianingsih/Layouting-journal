@@ -160,7 +160,7 @@ if uploaded_file is not None:
     st.write("**Afiliasi:**", journal_info["afiliasi"])
     st.write("**Penamaan LoA:**", loa_name)
     st.write("**LoA ID:**", loa_id)
-
+  
     # Isi template dengan data yang diekstrak
     filled_file = fill_template(TEMPLATE_PATH, journal_info, loa_id, current_date, loa_name, romawi_bulan, tahun, vol_no)
     st.success(filled_file)
