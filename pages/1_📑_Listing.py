@@ -7,6 +7,7 @@ st.set_page_config(
     page_icon="📑"
 )
 
+# Extract id from file
 def extract_ids_from_files(directory, project_ke):
     journal_ids = {}
 
@@ -52,6 +53,7 @@ def display_ids(journal_ids, bulan):
 
 if __name__ == "__main__":
     st.title("Journal ID Extractor")
+    st.sidebar.info('Type A is JUPIN and Type B is JAMSI')
     
     col1, col2 = st.columns(2)
 

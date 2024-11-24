@@ -12,6 +12,7 @@ st.set_page_config(
 )
 
 st.title("Layouting Automation 😁")
+st.sidebar.info('Type A is JUPIN and Type B is JAMSI')
 
 
 st.markdown(
